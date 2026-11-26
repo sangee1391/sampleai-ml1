@@ -100,8 +100,8 @@
   <div class="workspace">
     <div class="sidebar">
       <div>
-        <label for="promptInput">Describe your web page</label>
-        <textarea id="promptInput" placeholder="e.g., create page similar to google search engine..."></textarea>
+        <label for="promptInput">Describe your web page (Spellcheck ON)</label>
+        <textarea id="promptInput" spellcheck="true" lang="en" placeholder="e.g., create front end page similar to google search engine..."></textarea>
       </div>
 
       <div>
@@ -112,16 +112,17 @@
         </p>
       </div>
 
-      <button id="generateBtn" onclick="generatePage()">Generate Web Page</button>
+      <button id="generateBtn" type="button">Generate Web Page</button>
+      <button id="fixSpellBtn" type="button" class="secondary">Fix Prompt Spelling</button>
     </div>
 
     <div class="output-area">
       <div class="tabs">
         <div class="tab-btns">
-          <button onclick="switchTab('preview')" id="btnPreview">Live Preview</button>
-          <button onclick="switchTab('code')" id="btnCode" class="secondary">HTML / CSS Code</button>
+          <button type="button" id="btnPreview">Live Preview</button>
+          <button type="button" id="btnCode" class="secondary">HTML / CSS Code</button>
         </div>
-        <button onclick="copyCode()" id="copyBtn" class="secondary">Copy Code</button>
+        <button type="button" id="copyBtn" class="secondary">Copy Code</button>
       </div>
 
       <iframe id="previewFrame"></iframe>
@@ -131,6 +132,39 @@
 
   <script>
     let currentCode = "";
+
+    function cleanSpelling(text) {
+      const fixes = {
+        "serch": "search",
+        "seach": "search",
+        "gogle": "google",
+        "googel": "google",
+        "engne": "engine",
+        "engin": "engine",
+        "similer": "similar",
+        "simlar": "similar",
+        "websit": "website",
+        "webiste": "website",
+        "pag": "page",
+        "pge": "page",
+        "creat": "create",
+        "crate": "create",
+        "desgin": "design",
+        "desing": "design",
+        "front end": "front-end",
+        "frontend": "front-end",
+        "logn": "login",
+        "loign": "login",
+        "portfolo": "portfolio",
+        "calcualtor": "calculator"
+      };
+      let corrected = text;
+      for (const wrong in fixes) {
+        const regex = new RegExp("\\b" + wrong + "\\b", "gi");
+        corrected = corrected.replace(regex, fixes[wrong]);
+      }
+      return corrected;
+    }
 
     function switchTab(tab) {
       const iframe = document.getElementById("previewFrame");
@@ -163,22 +197,26 @@
         alert("Generate a web page first!");
         return;
       }
-      navigator.clipboard.writeText(currentCode).then(() => {
+      navigator.clipboard.writeText(currentCode).then(function() {
         const btn = document.getElementById("copyBtn");
         btn.textContent = "Copied!";
-        setTimeout(() => (btn.textContent = "Copy Code"), 2000);
+        setTimeout(function() { btn.textContent = "Copy Code"; }, 2000);
       });
     }
 
     async function generatePage() {
-      const prompt = document.getElementById("promptInput").value.trim();
+      const promptBox = document.getElementById("promptInput");
+      const rawPrompt = promptBox.value.trim();
       const apiKey = document.getElementById("apiKey").value.trim();
       const btn = document.getElementById("generateBtn");
 
-      if (!prompt) {
+      if (!rawPrompt) {
         alert("Please enter a prompt describing your page.");
         return;
       }
+
+      const prompt = cleanSpelling(rawPrompt);
+      promptBox.value = prompt;
 
       btn.disabled = true;
       btn.textContent = "Generating...";
@@ -193,16 +231,17 @@
               body: JSON.stringify({
                 contents: [{
                   parts: [{
-                    text: "Create a complete, modern, responsive single-file HTML web page with embedded CSS and JS for this prompt: " + prompt + ". Return ONLY raw HTML code without markdown backticks."
+                    text: "Create a complete, modern, responsive single-file HTML web page with embedded CSS and JS for this prompt: " + prompt + ". Automatically understand any minor spelling mistakes. Return ONLY raw HTML code without markdown backticks."
                   }]
                 }]
               })
             }
           );
           const data = await response.json();
-          const candidate = data.candidates && data.candidates[0];
-          const part = candidate && candidate.content && candidate.content.parts && candidate.content.parts[0];
-          let rawHtml = part ? part.text : "";
+          const candidate = Array.isArray(data.candidates) ? data.candidates.at(0) : null;
+          const parts = candidate && candidate.content && Array.isArray(candidate.content.parts) ? candidate.content.parts : [];
+          const firstPart = parts.at(0);
+          let rawHtml = firstPart && firstPart.text ? firstPart.text : "";
           rawHtml = rawHtml.replace(/^```html\s*/i, "").replace(/```$/i, "").trim();
 
           if (rawHtml) {
@@ -223,7 +262,6 @@
     }
 
     function buildFallbackTemplate(prompt) {
-      // Smart template for Search Engine prompts
       if (/search|google|browser/i.test(prompt)) {
         return `<!DOCTYPE html>
 <html lang="en">
@@ -238,20 +276,3 @@
     nav a:hover { text-decoration: underline; }
     .avatar { background: #1a73e8; color: white; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-weight: bold; }
     main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1rem; margin-top: -4rem; }
-    .logo { font-size: 4.5rem; font-weight: 700; letter-spacing: -2px; margin-bottom: 1.5rem; }
-    .logo span:nth-child(1) { color: #4285f4; }
-    .logo span:nth-child(2) { color: #ea4335; }
-    .logo span:nth-child(3) { color: #fbbc05; }
-    .logo span:nth-child(4) { color: #4285f4; }
-    .logo span:nth-child(5) { color: #34a853; }
-    .logo span:nth-child(6) { color: #ea4335; }
-    .search-box { width: 100%; max-width: 580px; display: flex; align-items: center; border: 1px solid #dfe1e5; border-radius: 24px; padding: 0.7rem 1.25rem; box-shadow: 0 1px 6px rgba(32,33,36,0.1); }
-    .search-box:hover { box-shadow: 0 1px 6px rgba(32,33,36,0.22); }
-    .search-box input { flex: 1; border: none; outline: none; font-size: 1rem; margin-left: 0.75rem; }
-    .buttons { margin-top: 1.75rem; display: flex; gap: 0.75rem; }
-    .buttons button { background: #f8f9fa; border: 1px solid #f8f9fa; border-radius: 4px; color: #3c4043; padding: 0.6rem 1.1rem; font-size: 0.9rem; cursor: pointer; }
-    .buttons button:hover { border-color: #dadce0; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
-    footer { background: #f2f2f2; padding: 0.9rem 2rem; font-size: 0.85rem; color: #70757a; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
-  </style>
-</head>
-<body>
